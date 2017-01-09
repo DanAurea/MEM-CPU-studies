@@ -42,6 +42,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <time.h>
 #include <string.h>
 
@@ -84,12 +85,138 @@ static void localityImpact(){
 } 
 
 /**
- * Will demonstrate how loop unrolling can exploit CPU pipelines alot 
- * better (could be wrong with modern CPU / compilers).
- * Should take account IPC of your CPU (if possible).
+ * Unroll a loop which show how pipeline and L1i cache could speed up
+ * your execution time. This is an optimization done by most compilers
+ * on O2 level if there is enough informations for compiler to unroll
+ * it. So pipeline could have less impact on some CPU/compilers
+ * because theoretically loop process could be translated to SIMD 
+ * instruction set (3DNow, AltiVec, SSE).
+ * 
+ * For better results, float array is used, floats are not directly
+ * processed by ALUs on CPU, so loop unrolling should show greater
+ * gain.
+ *
+ * Look followings url for more informations:
+ * lwn.net/Articles/255364/
+ * azillionmonkeys.com/qed/optimize.html
+ *
+ * There is an improvement of roughly 95% between first loop and the shortest loop 
+ * on my laptop.
+ * 
+ * *TODO* Should take account IPC of your CPU (if possible) through compiling
+ * constant (IPC increase is a consequence of pipelining).
  */
 static void pipelineImpact(){
+	clock_t tClock;
+	float * array;
+	float sum = 0, sum0, sum1, sum2, sum3;
+	double t1, t2, t3, t4;
+	double temp, min, gain;
+	int i, arraySize = 64 * 1024 * 1024;
 
+	array = malloc( arraySize * sizeof(float));
+
+	/** Error during allocation */
+	if(array == NULL){
+		return;
+	}
+
+	memset(array, 1.0, arraySize);
+
+
+	/** Loop 1 */
+
+	printf("\nStart loop 1 with basic use of pipeline: \n");
+
+	tClock = clock();
+	sum = 0;
+	for(i = 0; i < arraySize; i++){
+		sum += array[i];
+	}
+	tClock = clock() - tClock;
+	
+	printf("End loop 1: \n");
+	t1  = (double) ((double)tClock)/CLOCKS_PER_SEC;
+
+	/** 
+	 *  Unrolling loop permit a n-cycle latency fully
+	 *  pipelined FADD unit.
+	 *  We are now exploiting advanced parallelism previously
+	 *  demonstrated with memory access from CPU on same and
+	 *  different memory location -> parallelismDemo().
+	 *  Those n operations should be done simultaneously on
+	 *  a CPU with IPC equal to n or more.
+	 *  
+	 *  Gains come from a better use of pipelines and L1i cache
+	 *  so even a CPU with low IPC could earn alot of execution
+	 *  time by doing loop unrolling.
+	 */
+	
+
+	/** Loop 2 */
+
+	printf("\nStart loop 2 with use of pipelines (2 cycles pipeline): \n");
+
+	tClock = clock();
+	sum = sum0 = sum1 = 0;
+	for(i = 0; i < arraySize; i+=2){
+		sum0 += array[i];
+		sum1 += array[i+1];
+	}
+	sum = (sum0 + sum1);
+	tClock = clock() - tClock;
+
+	printf("End loop 2: \n");
+	t2  = (double) ((double)tClock)/CLOCKS_PER_SEC;
+
+	/** Loop 3 */
+
+	printf("\nStart loop 3 with use of pipelines (3 cycles pipeline): \n");
+
+	tClock = clock();
+	sum = sum0 = sum1 = sum2 = 0;
+	for(i = 0; i < arraySize; i+=3){
+		sum0 += array[i];
+		sum1 += array[i+1];
+		sum2 += array[i+2];
+	}
+	sum = (sum0 + sum1) + sum2;
+	tClock = clock() - tClock;
+
+	printf("End loop 3: \n");
+	t3  = (double) ((double)tClock)/CLOCKS_PER_SEC;
+
+	/** Loop 4 */
+
+	printf("\nStart loop 4 with use of pipelines (4 cycles pipeline): \n");
+
+	tClock = clock();
+	sum = sum0 = sum1 = sum2 = sum3 = 0;
+	for(i = 0; i < arraySize; i+=4){
+		sum0 += array[i];
+		sum1 += array[i+1];
+		sum2 += array[i+2];
+		sum3 += array[i+3];
+	}
+	sum = (sum0 + sum1) + (sum2 + sum3);
+	tClock = clock() - tClock;
+
+	printf("End loop 4: \n");
+	t4  = (double) ((double)tClock)/CLOCKS_PER_SEC;
+
+	/** Compute minimun value between each loop unrolling  */
+	temp = (t2 < t3)    ? t2 : t3;
+    min =  (t4 < temp) ? t4 : temp;
+
+	gain = (1.0 - t1 / min) * 100;
+
+	printf("\nCPU took %f ms to process floats sum on loop 1.\n", t1 * 1000 );
+	printf("CPU took %f ms to process floats sum on loop 2.\n", t2 * 1000 );
+	printf("CPU took %f ms to process floats sum on loop 3.\n", t3 * 1000 );
+	printf("CPU took %f ms to process floats sum on loop 4.\n", t4 * 1000 );
+	printf("\nImprovement of %0.2f %% in execution time (greatest gain between all loops).\n", fabs(gain));
+
+	free(array);
 }
 
 /**
@@ -117,6 +244,9 @@ static void pipelineImpact(){
  *
  * So newer CPU seems to have a different fetching method resulting in less overhead 
  * than in past when skipping a cache line could divide update time by 2.
+ *
+ * *TODO* Take account Cache line size from machine's CPU to show when step should be 
+ * enough to result in a great boost.
  * 
  * @param step Update step
  */
@@ -163,7 +293,7 @@ static void cacheLineImpact(int step){
  * This example is retrieved from igoro.com website at following url: 
  * igoro.com/archive/gallery-of-processor-cache-effects/
  *
- * There is an improvement of 17% to 19% in execution time between both 
+ * There is an improvement of 25% to 28% in execution time between both 
  * loops on my machine although they are doing same operations.
  */
 static void parallelismDemo(){
@@ -182,7 +312,7 @@ static void parallelismDemo(){
 	 * kind of optimization.
 	 */
 
-	printf("Start loop 1 with increments on same memory location: \n");
+	printf("\nStart loop 1 with increments on same memory location: \n");
 	
 	tClock = clock();
 	
@@ -218,11 +348,11 @@ static void parallelismDemo(){
 	printf("End loop 2: \n");
 	t2 = (double) ((double)tClock)/CLOCKS_PER_SEC ;
 
-	gain = (1.0 - t2 / t1) * 100;
+	gain = (1.0 - t1 / t2) * 100;
 
 	printf("\nLoop 1 took %0.4f seconds to execute.\n", t1);
 	printf("Loop 2 took %0.4f seconds to execute.\n", t2);
-	printf("\nImprovement of %0.2f %% between both loops.\n", gain);
+	printf("\nImprovement of %0.2f %% in execution time between both loops.\n", fabs(gain));
 }
 
 int main(void){
@@ -230,8 +360,16 @@ int main(void){
 	/** Parallelism  */
 	printf("\n=====================================================================\n");
 	printf("\t Demo of parallelism on CPU pipelines:");
-	printf("\n=====================================================================\n\n");
+	printf("\n=====================================================================\n");
 	parallelismDemo();
+
+	/** Pipeline impact  */
+
+	printf("\n=====================================================================\n");
+	printf("\t Demo of pipelines impact and L1i cache:");
+	printf("\n=====================================================================\n");
+
+	pipelineImpact();
 
 	/** Cache lines  */
 
