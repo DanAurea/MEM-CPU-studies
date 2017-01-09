@@ -77,11 +77,58 @@ static void cacheMissImpact(){
 }
 
 /**
- * Will demonstrate how it's important to respect spatial locality
- * such as in matrix exploration for a better use of CPU caches.
+ * Perform a row-major and column-major exploration of matrix
+ * demonstrating how spatial locality could impact execution
+ * time.
+ * Cache replacement policies imply to respect locality for 
+ * a lower cache miss ratio, keeping in mind locality provide
+ * you a better chance to exploit more effectively lowest level
+ * of cache.
+ *
+ * You could look at those following urls for more informations:
+ * fgiesen.wordpress.com/2012/02/12/row-major-vs-column-major-row-vectors-vs-column-vectors/
+ * www.cs.duke.edu/courses/cps104/spring11/lects/19-cache-sw2.pdf
+ *
+ * In C you should use row-major for better performance.
+ * Most compilers are not doing this job for you because 
+ * your algorithm could be dependent on exploration order.
  */
 static void localityImpact(){
+	clock_t tClock;
+	double t1, t2, gain;
 
+	int * matrix;
+	int i, matrixSize = 1024;
+
+	
+	printf("\nStart loop 1 with row-major exploration: \n");
+	
+	tClock = clock();
+	
+	/** DO ROW-MAJOR EXPLORATION THERE */
+	
+	tClock = clock() - tClock;
+	
+	printf("End loop 1: \n");
+	t1 = (double) ((double)tClock)/CLOCKS_PER_SEC ;
+	
+	
+	printf("\nStart loop 2 with column-major exploration: \n");
+	
+	tClock = clock();
+	
+	/** DO COLUMN-MAJOR EXPLORATION THERE */
+	
+	tClock = clock() - tClock;
+	
+	printf("End loop 2: \n");
+	t2 = (double) ((double)tClock)/CLOCKS_PER_SEC ;
+
+	gain = (1.0 - t1 / t2) * 100;
+
+	printf("\nLoop 1 took %0.4f seconds to execute.\n", t1);
+	printf("Loop 2 took %0.4f seconds to execute.\n", t2);
+	printf("\nImprovement of %0.2f %% in execution time between both loops.\n", fabs(gain));
 } 
 
 /**
@@ -101,12 +148,15 @@ static void localityImpact(){
  * azillionmonkeys.com/qed/optimize.html
  *
  * There is an improvement of roughly 95% between first loop and the shortest loop 
- * on my laptop.
+ * on my laptop, an improvement of 312% was observed between 1 cycle and 4 cycles
+ * on a I7 4710HQ.
+ * Furthermore 2 cycles, 3 cycles and 4 cycles loops don't show anymore 
+ * improvements.
  * 
  * *TODO* Should take account IPC of your CPU (if possible) through compiling
  * constant (IPC increase is a consequence of pipelining).
  */
-static void pipelineImpact(){
+static void floatPipelineImpact(){
 	clock_t tClock;
 	float * array;
 	float sum = 0, sum0, sum1, sum2, sum3;
@@ -126,7 +176,7 @@ static void pipelineImpact(){
 
 	/** Loop 1 */
 
-	printf("\nStart loop 1 with basic use of pipeline: \n");
+	printf("\nStart loop 1 with basic use of pipelines: \n");
 
 	tClock = clock();
 	sum = 0;
@@ -214,6 +264,115 @@ static void pipelineImpact(){
 	printf("CPU took %f ms to process floats sum on loop 2.\n", t2 * 1000 );
 	printf("CPU took %f ms to process floats sum on loop 3.\n", t3 * 1000 );
 	printf("CPU took %f ms to process floats sum on loop 4.\n", t4 * 1000 );
+	printf("\nImprovement of %0.2f %% in execution time (greatest gain between all loops).\n", fabs(gain));
+
+	free(array);
+}
+
+/**
+ * Same as above but with integer to show how pipelining differ
+ * between types. Better use of ALU there so a 4 cycles
+ * optimized version should you better results.
+ *
+ * There is an improvement of 181% between 1 cycle loop and 
+ * 4 cycle loop on my laptop.
+ * Contrary to float operations, there is a little improvement
+ * between each loop.
+ * 
+ */
+static void intPipelineImpact(){
+	clock_t tClock;
+	int * array;
+	int sum = 0, sum0, sum1, sum2, sum3;
+	double t1, t2, t3, t4;
+	double temp, min, gain;
+	int i, arraySize = 64 * 1024 * 1024;
+
+	array = malloc( arraySize * sizeof(int));
+
+	/** Error during allocation */
+	if(array == NULL){
+		return;
+	}
+
+	memset(array, 1.0, arraySize);
+
+
+	/** Loop 1 */
+
+	printf("\nStart loop 1 with basic use of pipelines: \n");
+
+	tClock = clock();
+	sum = 0;
+	for(i = 0; i < arraySize; i++){
+		sum += array[i];
+	}
+	tClock = clock() - tClock;
+	
+	printf("End loop 1: \n");
+	t1  = (double) ((double)tClock)/CLOCKS_PER_SEC;
+
+	/** Loop 2 */
+
+	printf("\nStart loop 2 with use of pipelines (2 cycles pipeline): \n");
+
+	tClock = clock();
+	sum = sum0 = sum1 = 0;
+	for(i = 0; i < arraySize; i+=2){
+		sum0 += array[i];
+		sum1 += array[i+1];
+	}
+	sum = (sum0 + sum1);
+	tClock = clock() - tClock;
+
+	printf("End loop 2: \n");
+	t2  = (double) ((double)tClock)/CLOCKS_PER_SEC;
+
+	/** Loop 3 */
+
+	printf("\nStart loop 3 with use of pipelines (3 cycles pipeline): \n");
+
+	tClock = clock();
+	sum = sum0 = sum1 = sum2 = 0;
+	for(i = 0; i < arraySize; i+=3){
+		sum0 += array[i];
+		sum1 += array[i+1];
+		sum2 += array[i+2];
+	}
+	sum = (sum0 + sum1) + sum2;
+	tClock = clock() - tClock;
+
+	printf("End loop 3: \n");
+	t3  = (double) ((double)tClock)/CLOCKS_PER_SEC;
+
+	/** Loop 4 */
+
+	printf("\nStart loop 4 with use of pipelines (4 cycles pipeline): \n");
+
+	tClock = clock();
+	sum = sum0 = sum1 = sum2 = sum3 = 0;
+	for(i = 0; i < arraySize; i+=4){
+		sum0 += array[i];
+		sum1 += array[i+1];
+		sum2 += array[i+2];
+		sum3 += array[i+3];
+	}
+	sum = (sum0 + sum1) + (sum2 + sum3);
+	tClock = clock() - tClock;
+
+	printf("End loop 4: \n");
+	t4  = (double) ((double)tClock)/CLOCKS_PER_SEC;
+
+	/** Compute minimun value between each loop unrolling  */
+	temp = (t2 < t3)    ? t2 : t3;
+    min =  (t4 < temp) ? t4 : temp;
+
+	gain = (1.0 - t1 / min) * 100;
+
+	printf("\nCPU took %f ms to process integer sum on loop 1.\n", t1 * 1000 );
+	printf("CPU took %f ms to process integer sum on loop 2.\n", t2 * 1000 );
+	printf("CPU took %f ms to process integer sum on loop 3.\n", t3 * 1000 );
+	printf("CPU took %f ms to process integer sum on loop 4.\n", t4 * 1000 );
 	printf("\nImprovement of %0.2f %% in execution time (greatest gain between all loops).\n", fabs(gain));
 
 	free(array);
@@ -366,10 +525,16 @@ int main(void){
 	/** Pipeline impact  */
 
 	printf("\n=====================================================================\n");
-	printf("\t Demo of pipelines impact and L1i cache:");
+	printf("\t Demo of pipelines impact and L1i cache on float type:");
 	printf("\n=====================================================================\n");
 
-	pipelineImpact();
+	floatPipelineImpact();
+
+	printf("\n=====================================================================\n");
+	printf("\t Demo of pipelines impact and L1i cache on integer type:");
+	printf("\n=====================================================================\n");
+
+	intPipelineImpact();
 
 	/** Cache lines  */
 
@@ -404,6 +569,14 @@ int main(void){
 
 	printf("\nStep(256): \n");
 	cacheLineImpact(256);
+
+	/** Spatial locality impact  */
+
+	printf("\n=====================================================================\n");
+	printf("\t Demo of spatial locality impact:");
+	printf("\n=====================================================================\n");
+
+	//localityImpact();
 
 	return 0;
 }
