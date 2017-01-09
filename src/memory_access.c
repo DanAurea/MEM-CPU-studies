@@ -43,6 +43,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <string.h>
 
 
 /**											
@@ -59,15 +60,98 @@
  */
 
 /**
+ * Will demonstrate how invalidation in cache could greatly 
+ * mess up multithreaded application.
+ */
+static void cacheLineBouncing(){
+
+}
+
+/**
+ * Will demonstrate how access time differs from L1 / L2 / L3
+ * and main memory.
+ */
+static void cacheMissImpact(){
+
+}
+
+/**
+ * Will demonstrate how it's important to respect spatial locality
+ * such as in matrix exploration for a better use of CPU caches.
+ */
+static void localityImpact(){
+
+} 
+
+/**
+ * Will demonstrate how loop unrolling can exploit CPU pipelines alot 
+ * better (could be wrong with modern CPU / compilers).
+ * Should take account IPC of your CPU (if possible).
+ */
+static void pipelineImpact(){
+
+}
+
+/**
  * Perform a simple operation on all values in an array and jump
  * from a fixed step between array values to show how memory access
  * is done, demonstrating that CPU don't access memory byte by byte but
- * from a chunk of variable size depending on your CPU.
+ * fetch it from a chunk of variable size depending on your CPU (32/64/128 bytes).
  * Of course this will work only on CPU with cache like x86 architecture
  * and so including cache lines.
- * @param step [description]
+ * You can find some useful informations on following url: lwn.net/Articles/255364/
+ * about how CPU read datas stored in memory / cache.
+ *
+ * On our modern CPU / compiler it seems this affirmation is not true now, on my
+ * laptop I had those results:
+ * 
+ * step(1)   = 341.63ms
+ * step(2)   = 228.85ms
+ * step(4)   = 166.83ms
+ * step(8)   = 135.72ms
+ * step(16)  = 132.86ms
+ * step(32)  = 127.78ms
+ * step(64)  = 119.73ms
+ * step(128) = 112.56ms
+ * step(256) = 109.73ms 
+ *
+ * So newer CPU seems to have a different fetching method resulting in less overhead 
+ * than in past when skipping a cache line could divide update time by 2.
+ * 
+ * @param step Update step
  */
 static void cacheLineImpact(int step){
+	clock_t tClock;
+	double updateTime;
+	int arraySize = 64 * 1024 * 1024;
+	int i, * array = NULL;
+
+	array = malloc( arraySize * sizeof(int));
+
+	memset(array, 1, arraySize);
+
+	/** Error during allocation */
+	if(array == NULL){
+		return;
+	}
+
+	tClock = clock();
+
+	/** 
+	 * Update k-values in an array with an update 
+	 * step specified by user, showing how CPU 
+	 * access memory (chunk read).
+	 */
+	for(i = 0; i < arraySize; i += step){
+		array[i] *= 3;
+	}
+
+	tClock = clock() - tClock;
+	updateTime = (double) ((double)tClock)/CLOCKS_PER_SEC;
+
+	printf("CPU took %f ms to execute update loop with a step of %i.\n", updateTime * 1000, step);
+
+	free(array); /** Free allocated memory from array */
 
 }
 
@@ -153,9 +237,22 @@ int main(void){
 
 	printf("\n=====================================================================\n");
 	printf("\t Demo of cache lines impact with an increasing step:");
-	printf("\n=====================================================================\n\n");
+	printf("\n=====================================================================\n");
 	
-	printf("Step(16): \n");
+
+	printf("\nStep(1): \n");
+	cacheLineImpact(1);
+
+	printf("\nStep(2): \n");
+	cacheLineImpact(2);
+
+	printf("\nStep(4): \n");
+	cacheLineImpact(4);
+
+	printf("\nStep(8): \n");
+	cacheLineImpact(8);
+
+	printf("\nStep(16): \n");
 	cacheLineImpact(16);
 
 	printf("\nStep(32): \n");
