@@ -21,23 +21,23 @@
  * 	             I will do my best for documenting every examples present in
  * 	             this file.
  *
- * 				 FYI: All examples were tested on a laptop with I5 6300HQ CPU
- * 				 and results could differ from others CPU.
+ *               FYI: All examples were tested on a laptop with I5 6300HQ CPU
+ *               and results could differ from others CPU.
  * 	                 
  *	@author		 DanAurea										  													  
  * 																		  
  * =============================================================================
- * 					============================================
- *							  Developers: DanAurea
- * 					============================================
- *								Copyright © 2016	
+ *                  ============================================
+ *                            Developers: DanAurea
+ *                  ============================================
+ *                              Copyright © 2016	
  */
 
  
 /**											
- * 					============================================
- * 					||                Headers                 ||
- * 					============================================ 
+ *                  ============================================
+ *                  ||                Headers                 ||
+ *                  ============================================ 
  */
 
 #include <stdio.h>
@@ -46,18 +46,30 @@
 
 
 /**											
- * 					============================================
- * 					||            Global variables            ||
- * 					============================================
+ *                  ============================================
+ *                  ||            Global variables            ||
+ *                  ============================================
  */
 
 
 /**											
- * 					============================================
- * 					||                Functions               ||
- * 					============================================
+ *                  ============================================
+ *                  ||                Functions               ||
+ *                  ============================================
  */
 
+/**
+ * Perform a simple operation on all values in an array and jump
+ * from a fixed step between array values to show how memory access
+ * is done, demonstrating that CPU don't access memory byte by byte but
+ * from a chunk of variable size depending on your CPU.
+ * Of course this will work only on CPU with cache like x86 architecture
+ * and so including cache lines.
+ * @param step [description]
+ */
+static void cacheLineImpact(int step){
+
+}
 
 /**
  * Perform increments on some values of an array to demonstrate
@@ -131,8 +143,32 @@ static void parallelismDemo(){
 
 int main(void){
 	
-	printf("\nDemo of parallelism on CPU pipelines: \n\n");
+	/** Parallelism  */
+	printf("\n=====================================================================\n");
+	printf("\t Demo of parallelism on CPU pipelines:");
+	printf("\n=====================================================================\n\n");
 	parallelismDemo();
+
+	/** Cache lines  */
+
+	printf("\n=====================================================================\n");
+	printf("\t Demo of cache lines impact with an increasing step:");
+	printf("\n=====================================================================\n\n");
+	
+	printf("Step(16): \n");
+	cacheLineImpact(16);
+
+	printf("\nStep(32): \n");
+	cacheLineImpact(32);
+
+	printf("\nStep(64): \n");
+	cacheLineImpact(64);
+
+	printf("\nStep(128): \n");
+	cacheLineImpact(128);
+
+	printf("\nStep(256): \n");
+	cacheLineImpact(256);
 
 	return 0;
 }
