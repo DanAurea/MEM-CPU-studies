@@ -24,7 +24,20 @@
  *               FYI: All examples were tested on a laptop with I5 6300HQ CPU
  *               and results could differ from others CPU.
  * 	                 
- *	@author		 DanAurea										  													  
+ *	@author		 DanAurea				
+ *
+ * *TODO LIST* : - Generic function for pipelining with variable number of loop,
+ *                 test should stop when a superficial gain is earned between
+ *                 both last loops.
+ *                 We should have choice on type tested.
+ *               - Refactoring
+ *               - More visual statistics
+ *               - Should retrieve cache line size / IPC and others useful
+ *                 informations about CPU explaining gains that should be 
+ *                 seen.
+ *               - Separate each demonstrations in differents files according
+ *                 to their domains (memory access, CPU architecture etc...)   
+ * 
  * 																		  
  * =============================================================================
  *                  ============================================
